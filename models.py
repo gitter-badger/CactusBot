@@ -13,7 +13,8 @@ from random import randrange, choice
 from beam import Beam
 
 basedir = abspath(dirname(__file__))
-engine = create_engine("sqlite:///" + join(basedir, "data/data.db"))
+db_path = "sqlite:///" + join(basedir, "data/data.db")
+engine = create_engine(db_path)
 Base = declarative_base()
 
 session = Session(engine)
