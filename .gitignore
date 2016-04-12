@@ -72,6 +72,3 @@ target/
 config.json
 stats.json
 data/*.db
-
-# Alembic ignores
-alembic/versions/
