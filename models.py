@@ -16,6 +16,7 @@ basedir = abspath(dirname(__file__))
 db_path = "sqlite:///" + join(basedir, "data/data.db")
 engine = create_engine(db_path)
 Base = declarative_base()
+Base.metadata.create_all(engine)
 
 session = Session(engine)
 
