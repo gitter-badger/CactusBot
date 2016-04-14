@@ -3,6 +3,8 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import Session, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
+from inspect import getfullargspec as get_full_arg_spec
+
 from functools import wraps, partial
 
 from os.path import abspath, dirname, join
@@ -20,7 +22,7 @@ Base = declarative_base()
 session = Session(engine)
 
 
-def role_specific(*roles, reply=None):
+def role_specific(*roles, reply=None):  # TODO: merge with subcommand
     roles += ("Owner",)
 
     def role_specific_decorator(function):
@@ -43,6 +45,56 @@ all_roles = (
 
 mod_roles = ("Founder", "Staff", "Global Mod", "Mod")
 mod_only = role_specific(*mod_roles, reply="mod")
+
+
+def subcommand(function):
+    function.is_subcommand = True
+    return function
+
+
+class CommandMeta(type):
+
+    def __new__(cls, name, bases, attrs):
+        subcommands = {}
+        for value in attrs.values():
+            if getattr(value, "is_subcommand", None):
+                subcommands[value.__name__] = value
+        attrs["subcommands"] = subcommands
+        return super(CommandMeta, cls).__new__(cls, name, bases, attrs)
+
+
+class NewCommand(metaclass=CommandMeta):  # TODO: rename class
+
+    def __call__(self, args, data):
+        if len(args) > 1:
+            if args[1] in self.subcommands:
+                kwargs = dict()  # TODO: typed arguments, TODO: arg regex
+
+                subcommand = self.subcommands[args[1]]
+
+                arg_spec = get_full_arg_spec(subcommand)
+                arg_spec.args.pop(0)
+
+                for argument, annotation in arg_spec.annotations.items():
+                    data_value = data.get(annotation)
+                    if data_value:
+                        kwargs[argument] = data_value
+                    arg_spec.args.remove(argument)
+
+                arg_len = len(arg_spec.args) + 1
+
+                if len(args) - 1 < arg_len:
+                    return subcommand.__doc__ or "Not enough arguments!"
+
+                # TODO: fix arg-less subcommands (-1 is not an index)
+                if arg_spec.annotations.get(arg_spec.args[-1], True) is True:
+                    args[arg_len:] = [' '.join(args[arg_len:])]
+
+                kwargs.update(dict(zip(arg_spec.args, args[2: arg_len + 1])))
+
+                return subcommand(self, **kwargs)
+            return "Invalid argument: '{}'.".format(args[1])
+        return self.__doc__ or "Not enough arguments!"
 
 
 class Command(Base):
@@ -138,66 +190,60 @@ class User(Base):
     points = Column(Integer, default=0)
 
 
-class CommandCommand(Command):
+class CommandCommand(NewCommand):
+    """Interact with command storage."""
 
-    @mod_only
-    def __call__(self, args, data):
-        if len(args) > 1:
-            if args[1] == "add":
-                if len(args) > 3:
-                    symbols_to_permissions = {
-                        '+': "Mod",
-                        '$': "Subscriber"
-                    }
+    @subcommand  # (mod_only=True)
+    def add(self, command, response, user_id: "user_id"):
+        """Add a command."""
 
-                    symbols, name = match(
-                        "^([{}]?)(.+)$".format(
-                            ''.join(symbols_to_permissions)),
-                        args[2]
-                    ).groups()
+        role_conversions = {
+            '+': "Mod",
+            '$': "Subscriber"
+        }
 
-                    permissions = ','.join(
-                        {symbols_to_permissions[symbol] for symbol in symbols})
+        symbols, name = match(
+            "^([{}]?)(.+)$".format(''.join(role_conversions)), command
+        ).groups()
 
-                    command = session.query(Command).filter_by(
-                        command=name).first()
+        permissions = ','.join(
+            {role_conversions[symbol] for symbol in symbols})
 
-                    if command:
-                        command.permissions = permissions
-                        command.response = ' '.join(args[3:])
-                    else:
-                        command = Command(
-                            command=name,
-                            permissions=permissions,
-                            response=' '.join(args[3:]),
-                            creation=datetime.utcnow(),
-                            author=data["user_id"]
-                        )
+        command = session.query(Command).filter_by(command=name).first()
 
-                    session.add(command)
-                    session.commit()
-                    return "Added command !{}.".format(name)
-                return "Not enough arguments!"
-            elif args[1] == "remove":
-                if len(args) > 2:
-                    command = session.query(Command).filter_by(
-                        command=args[2]).first()
-                    if command is not None:
-                        session.delete(command)
-                        session.commit()
-                        return "Removed command !{}.".format(args[2])
-                    return "!{} does not exist!".format(args[2])
-                return "Not enough arguments!"
-            elif args[1] == "list":
-                commands = session.query(Command).all()
-                commands_list = ', '.join(
-                    [c.command for c in commands if c.command])
-                if commands_list:
-                    return "Commands: {commands}.".format(
-                        commands=commands_list)
-                return "No commands added."
-            return "Invalid argument: {}.".format(args[1])
-        return "Not enough arguments!"
+        if command:
+            command.permissions = permissions
+            command.response = response
+            command.author = user_id
+        else:
+            command = Command(
+                command=name,
+                permissions=permissions,
+                response=response,
+                creation=datetime.utcnow(),
+                author=user_id
+            )
+
+        session.add(command)
+        session.commit()
+        return "Added command !{}.".format(name)
+
+    @subcommand
+    def remove(self, command):
+        command = session.query(Command).filter_by(command=command).first()
+        if command is not None:
+            session.delete(command)
+            session.commit()
+            return "Removed command !{}.".format(command)
+        return "!{} does not exist!".format(command)
+
+    @subcommand
+    def list(self):
+        commands = session.query(Command).all()
+        commands_list = ', '.join([c.command for c in commands if c.command])
+        if commands_list:
+            return "Commands: {commands}.".format(commands=commands_list)
+        return "No commands added."
 
 
 class QuoteCommand(Command):
@@ -254,15 +300,15 @@ class SocialCommand(Command):
         channel_data = self.get_channel(data["channel"])
         name = channel_data["token"]
         s = channel_data["user"]["social"]
-        a = [arg.lower() for arg in args[1:]]
+        a = {arg.lower() for arg in args[1:]}
         if s:
             if not a:
                 return ', '.join(': '.join((k.title(), s[k])) for k in s)
-            elif set(a).issubset(set(s).union({"beam"})):
+            elif a.issubset(set(s).union({"beam"})):
                 s.update({"beam": "https://beam.pro/{}".format(name)})
                 return ', '.join(': '.join((k.title(), s[k])) for k in a)
             return "Data not found for service{s}: {}.".format(
-                ', '.join(set(a) - set(s)), s='s'*(len(set(a) - set(s)) != 1))
+                ', '.join(a - set(s)), s='s' * (len(a - set(s)) != 1))
         return "No social services were found on the streamer's profile."
 
 
@@ -405,7 +451,8 @@ class RepeatCommand(Command):
             repeats = session.query(Repeat).all()
             return "Repeats: {repeats}".format(
                 repeats=', '.join(
-                    [r.command.command+' '+str(r.interval) for r in repeats]
+                    [r.command.command + ' ' +
+                        str(r.interval) for r in repeats]
                 )
             )
         return "Invalid argument: {}.".format(args[1])
