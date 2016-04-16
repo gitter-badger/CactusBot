@@ -72,3 +72,6 @@ target/
 config.json
 stats.json
 data/*.db
+
+# Alembic stuffs
+alembic/versions/
