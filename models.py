@@ -22,7 +22,7 @@ Base = declarative_base()
 session = Session(engine)
 
 
-def role_specific(*roles, reply=None):  # TODO: merge with subcommand
+def role_specific(*roles, reply=None):
     roles += ("Owner",)
 
     def role_specific_decorator(function):
@@ -48,8 +48,38 @@ mod_only = role_specific(*mod_roles, reply="mod")
 
 
 def subcommand(function):
-    function.is_subcommand = True
-    return function
+    @wraps(function)
+    def wrapper(self, args, data):
+        kwargs = dict()  # TODO: typed arguments, TODO: arg regex
+
+        arg_spec = get_full_arg_spec(function)
+        arg_spec.args.pop(0)
+
+        for argument, annotation in arg_spec.annotations.items():
+            data_value = data.get(annotation)
+            if isinstance(data_value, str):
+                kwargs[argument] = data_value
+            arg_spec.args.remove(argument)
+
+        arg_len = len(arg_spec.args) + 1
+
+        if len(args) - 1 < arg_len:
+            return subcommand.__doc__ or "Not enough arguments!"
+
+        if not arg_spec.args:
+            return function(self)
+
+        if arg_spec.annotations.get(arg_spec.args[-1], True) is True:
+            args[arg_len:] = [' '.join(args[arg_len:])]
+
+        kwargs.update(dict(zip(arg_spec.args, args[2: arg_len + 1])))
+
+        return function(self, **kwargs)
+
+    wrapper.is_subcommand = True
+    wrapper.__name__ = function.__name__
+
+    return wrapper
 
 
 class CommandMeta(type):
@@ -68,31 +98,7 @@ class NewCommand(metaclass=CommandMeta):  # TODO: rename class
     def __call__(self, args, data):
         if len(args) > 1:
             if args[1] in self.subcommands:
-                kwargs = dict()  # TODO: typed arguments, TODO: arg regex
-
-                subcommand = self.subcommands[args[1]]
-
-                arg_spec = get_full_arg_spec(subcommand)
-                arg_spec.args.pop(0)
-
-                for argument, annotation in arg_spec.annotations.items():
-                    data_value = data.get(annotation)
-                    if data_value:
-                        kwargs[argument] = data_value
-                    arg_spec.args.remove(argument)
-
-                arg_len = len(arg_spec.args) + 1
-
-                if len(args) - 1 < arg_len:
-                    return subcommand.__doc__ or "Not enough arguments!"
-
-                # TODO: fix arg-less subcommands (-1 is not an index)
-                if arg_spec.annotations.get(arg_spec.args[-1], True) is True:
-                    args[arg_len:] = [' '.join(args[arg_len:])]
-
-                kwargs.update(dict(zip(arg_spec.args, args[2: arg_len + 1])))
-
-                return subcommand(self, **kwargs)
+                return self.subcommands[args[1]](self, args, data)
             return "Invalid argument: '{}'.".format(args[1])
         return self.__doc__ or "Not enough arguments!"
 
@@ -193,7 +199,8 @@ class User(Base):
 class CommandCommand(NewCommand):
     """Interact with command storage."""
 
-    @subcommand  # (mod_only=True)
+    @mod_only
+    @subcommand
     def add(self, command, response, user_id: "user_id"):
         """Add a command."""
 
@@ -228,15 +235,17 @@ class CommandCommand(NewCommand):
         session.commit()
         return "Added command !{}.".format(name)
 
+    @mod_only
     @subcommand
     def remove(self, command):
-        command = session.query(Command).filter_by(command=command).first()
-        if command is not None:
-            session.delete(command)
+        command_row = session.query(Command).filter_by(command=command).first()
+        if command_row is not None:
+            session.delete(command_row)
             session.commit()
-            return "Removed command !{}.".format(command)
-        return "!{} does not exist!".format(command)
+            return "Removed command !{}.".format(command_row.command)
+        return "Command !{} does not exist!".format(command)
 
+    @mod_only
     @subcommand
     def list(self):
         commands = session.query(Command).all()
