@@ -22,7 +22,11 @@ Base = declarative_base()
 session = Session(engine)
 
 
+<<<<<<< HEAD
 def role_specific(*roles, reply=None):
+=======
+def role_specific(*roles, reply=None):  # TODO: merge with subcommand
+>>>>>>> c9edb5e921857bf43caa7f1ff64c50f78fd0b317
     roles += ("Owner",)
 
     def role_specific_decorator(function):
@@ -48,6 +52,7 @@ mod_only = role_specific(*mod_roles, reply="mod")
 
 
 def subcommand(function):
+<<<<<<< HEAD
     @wraps(function)
     def wrapper(self, args, data):
         kwargs = dict()  # TODO: typed arguments, TODO: arg regex
@@ -80,6 +85,10 @@ def subcommand(function):
     wrapper.__name__ = function.__name__
 
     return wrapper
+=======
+    function.is_subcommand = True
+    return function
+>>>>>>> c9edb5e921857bf43caa7f1ff64c50f78fd0b317
 
 
 class CommandMeta(type):
@@ -98,7 +107,35 @@ class NewCommand(metaclass=CommandMeta):  # TODO: rename class
     def __call__(self, args, data):
         if len(args) > 1:
             if args[1] in self.subcommands:
+<<<<<<< HEAD
                 return self.subcommands[args[1]](self, args, data)
+=======
+                kwargs = dict()  # TODO: typed arguments, TODO: arg regex
+
+                subcommand = self.subcommands[args[1]]
+
+                arg_spec = get_full_arg_spec(subcommand)
+                arg_spec.args.pop(0)
+
+                for argument, annotation in arg_spec.annotations.items():
+                    data_value = data.get(annotation)
+                    if data_value:
+                        kwargs[argument] = data_value
+                    arg_spec.args.remove(argument)
+
+                arg_len = len(arg_spec.args) + 1
+
+                if len(args) - 1 < arg_len:
+                    return subcommand.__doc__ or "Not enough arguments!"
+
+                # TODO: fix arg-less subcommands (-1 is not an index)
+                if arg_spec.annotations.get(arg_spec.args[-1], True) is True:
+                    args[arg_len:] = [' '.join(args[arg_len:])]
+
+                kwargs.update(dict(zip(arg_spec.args, args[2: arg_len + 1])))
+
+                return subcommand(self, **kwargs)
+>>>>>>> c9edb5e921857bf43caa7f1ff64c50f78fd0b317
             return "Invalid argument: '{}'.".format(args[1])
         return self.__doc__ or "Not enough arguments!"
 
