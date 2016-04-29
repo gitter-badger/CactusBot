@@ -68,6 +68,9 @@ target/
 # pyenv
 .python-version
 
+#Virtualenv
+venv/
+
 # CactusBot private data
 config.json
 stats.json
