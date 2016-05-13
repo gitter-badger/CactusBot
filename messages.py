@@ -2,7 +2,7 @@ from beam import Beam
 from models import (Command, User, session, CommandCommand, QuoteCommand,
                     CubeCommand, SocialCommand, UptimeCommand, PointsCommand,
                     TemmieCommand, FriendCommand, SpamProtCommand, ProCommand,
-                    SubCommand, RepeatCommand)
+                    SubCommand, RepeatCommand, StreamCommand)
 
 from re import findall
 
@@ -20,24 +20,25 @@ class MessageHandler(Beam):
         """Initialize built-in commands."""
 
         self.commands = {
-            "cactus": "Ohai! I'm CactusBot. :cactus",
-            "test": "Test confirmed. :cactus",
-            "help": "Check out my documentation at cactusbot.readthedocs.org.",
-            "command": CommandCommand(),
-            "repeat": RepeatCommand(
-                self.send_message,
-                self.bot_data["username"],
-                self.channel_data["token"]),
-            "quote": QuoteCommand(),
-            "social": SocialCommand(self.get_channel),
-            "uptime": UptimeCommand(self._request),
-            "friend": FriendCommand(self.get_channel),
-            "points": PointsCommand(self.config["points"]["name"]),
+            "cactus":   "Ohai! I'm CactusBot. :cactus",
+            "test":     "Test confirmed. :cactus",
+            "help":     "Check out my documentation at cactusbot.readthedocs.org.",
+            "command":  CommandCommand(),
+            "repeat":   RepeatCommand(
+                            self.send_message,
+                            self.bot_data["username"],
+                            self.channel_data["token"]),
+            "quote":    QuoteCommand(),
+            "social":   SocialCommand(self.get_channel),
+            "uptime":   UptimeCommand(self._request),
+            "friend":   FriendCommand(self.get_channel),
+            "points":   PointsCommand(self.config["points"]["name"]),
             "spamprot": SpamProtCommand(self.update_config),
-            "pro": ProCommand(),
-            "sub": SubCommand(),
-            "cube": CubeCommand(),
-            "temmie": TemmieCommand()
+            "pro":      ProCommand(),
+            "sub":      SubCommand(),
+            "cube":     CubeCommand(),
+            "temmie":   TemmieCommand(),
+            "set":      StreamCommand(self._request)
         }
 
     def handle(self, response):
