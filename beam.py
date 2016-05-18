@@ -267,7 +267,9 @@ class Beam:
 
             self.watch_liveloading()
         else:
-            raise ConnectionError(future.exception())
+            self.logger.warning(future.exception())
+            self.connect_to_liveloading(channel_id, user_id)
+            # raise ConnectionError(future.exception())
 
     def subscribe_to_interfaces(self, *interfaces):
         """Subscribe to a Beam liveloading interface."""
