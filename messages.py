@@ -86,11 +86,9 @@ class MessageHandler(Beam):
         user = session.query(User).filter_by(id=data["user_id"]).first()
         if user is not None:
             user.messages += 1
-            session.commit()
         else:
             user = User(id=data["user_id"], joins=1, messages=1)
             session.add(user)
-            session.commit()
 
         mod_roles = ("Owner", "Staff", "Founder", "Global Mod", "Mod")
         if not (data["user_roles"][0] in mod_roles or user.friend):
@@ -98,7 +96,6 @@ class MessageHandler(Beam):
                     "maximum_message_length", 256)):
                 self.remove_message(data["channel"], data["id"])
                 user.offenses += 1
-                session.commit()
                 return self.send_message(
                     data["user_name"], "Please stop spamming.",
                     method="whisper")
@@ -107,7 +104,6 @@ class MessageHandler(Beam):
                         "maximum_message_capitals", 32)):
                 self.remove_message(data["channel"], data["id"])
                 user.offenses += 1
-                session.commit()
                 return self.send_message(
                     data["user_name"], "Please stop speaking in all caps.",
                     method="whisper")
@@ -117,7 +113,6 @@ class MessageHandler(Beam):
                     "maximum_message_emotes", 8)):
                 self.remove_message(data["channel"], data["id"])
                 user.offenses += 1
-                session.commit()
                 return self.send_message(
                     data["user_name"], "Please stop spamming emoticons.",
                     method="whisper")
@@ -128,7 +123,6 @@ class MessageHandler(Beam):
                         "allow_links", False)):
                 self.remove_message(data["channel"], data["id"])
                 user.offenses += 1
-                session.commit()
                 return self.send_message(
                     data["user_name"], "Please stop posting links.",
                     method="whisper")
@@ -189,8 +183,6 @@ class MessageHandler(Beam):
         else:
             user.joins += 1
             session.add(user)
-
-        session.commit()
 
         self.current_users.update(
             {str(data["id"]): str(data["username"])}

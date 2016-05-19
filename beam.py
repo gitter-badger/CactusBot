@@ -16,7 +16,7 @@ from json import dumps, loads
 
 from re import match
 
-from models import User, session
+from models import User, session, Commits
 from datetime import datetime
 
 
@@ -29,6 +29,7 @@ class Beam:
 
     def __init__(self, debug="INFO", **kwargs):
         self._init_logger(debug, kwargs.get("log_to_file", True))
+        Commits.periodic_commit(Commits)
         self.http_session = Session()
 
     def _init_logger(self, level="INFO", file_logging=True, **kwargs):
@@ -95,8 +96,6 @@ class Beam:
         for name in names:
             for user in viewers:
                 self.current_users.update({str(user): str(name)})
-
-        session.commit()
 
         self.logger.info("Successfully added new users to database.")
 
@@ -419,7 +418,6 @@ class Beam:
                                     packet["data"][1]["user"]["username"]))
                             user.follow_date = datetime.now()
                             session.add(user)
-                            session.commit()
                     elif packet["data"][1].get("subscribed"):
                         self.logger.info("- {} subscribed.".format(
                             packet["data"][1]["user"]["username"]))

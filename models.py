@@ -45,8 +45,12 @@ mod_roles = ("Founder", "Staff", "Global Mod", "Mod")
 mod_only = role_specific(*mod_roles, reply="mod")
 
 
-def is_mod(username):
-    pass
+class Commits:
+    def _periodic_commit():
+        session.commit()
+
+    def periodic_commit(self):
+        PeriodicCallback(self._periodic_commit, 5).start()
 
 
 class Command(Base):
@@ -90,7 +94,6 @@ class Command(Base):
             response = response.replace("%args%", ' '.join(args[1:]))
 
             self.calls += 1
-            session.commit()
 
             response = response.replace("%count%", str(self.calls))
 
@@ -160,7 +163,6 @@ class User(Base):
                 user.points += amount
 
                 session.add(user)
-                session.commit()
                 if announce:
                     return "Added {amt} points to @{user}!".format(
                         amt=amount, user=user)
@@ -241,7 +243,6 @@ class CommandCommand(Command):
                         )
 
                     session.add(command)
-                    session.commit()
                     return "Added command !{}.".format(name)
                 return "Not enough arguments!"
             elif args[1] == "remove":
@@ -250,7 +251,6 @@ class CommandCommand(Command):
                         command=args[2]).first()
                     if command is not None:
                         session.delete(command)
-                        session.commit()
                         return "Removed command !{}.".format(args[2])
                     return "!{} does not exist!".format(args[2])
                 return "Not enough arguments!"
@@ -307,7 +307,6 @@ class QuoteCommand(Command):
                     )
                     session.add(quote)
                     session.flush()
-                    session.commit()
                     return "Added quote with ID {}.".format(quote.id)
                 elif args[1] == "remove":
                     try:
@@ -317,7 +316,6 @@ class QuoteCommand(Command):
                     quote = session.query(Quote).filter_by(id=id).first()
                     if quote is not None:
                         session.delete(quote)
-                        session.commit()
                         return "Removed quote with ID {}.".format(args[2])
                     return "Quote {} does not exist!".format(args[2])
                 return "Invalid argument: '{}'.".format(args[1])
@@ -413,7 +411,6 @@ class PointsCommand(Command):
                 user.points += int(args[3])
 
                 session.add(user)
-                session.commit()
 
                 return "@{user} now has {amt} points".format(user=args[2], amt=user.points)
             elif args[1] == "remove":
@@ -426,7 +423,6 @@ class PointsCommand(Command):
                     user.points -= int(args[3])
 
                     session.add(user)
-                    session.commit()
 
                     return "@{user}'s points have been decreased to: {amt}".format(user=args[2], amt=user.points)
             elif args[1] == "set":
@@ -435,7 +431,6 @@ class PointsCommand(Command):
                 user.points = int(args[3])
 
                 session.add(user)
-                session.commit()
 
                 return "Set @{user}'s points to {amt}".format(user=args[2], amt=args[3])
             else:
@@ -488,7 +483,6 @@ class RepeatCommand(Command):
                         callback.stop()
                         callback.start()
                         session.add(repeat)
-                        session.commit()
                         return "Repeat updated."
 
                     command = session.query(Command).filter_by(command=args[3])
@@ -507,7 +501,6 @@ class RepeatCommand(Command):
                         self.repeats[args[3]] = periodic_callback
                         periodic_callback.start()
                         session.add(repeat)
-                        session.commit()
                         return "Repeating '!{}' every {} seconds.".format(
                             command.command, interval)
                     return "Undefined command '!{}'.".format(args[3])
@@ -520,7 +513,6 @@ class RepeatCommand(Command):
                         self.repeats[args[2]].stop()
                         del self.repeats[args[2]]
                         session.delete(repeat)
-                        session.commit()
                         return "Removed repeat for !{}.".format(args[2])
                     return "Repeat for !{} does not exist!".format(args[2])
                 return "Not enough arguments!"
@@ -548,7 +540,6 @@ class RepeatCommand(Command):
             self.repeats[command_name].stop()
             del self.repeats[command_name]
             session.delete(repeat)
-            session.commit()
 
 
 class TemmieCommand(Command):
@@ -580,7 +571,6 @@ class FriendCommand(Command):
             query = session.query(User).filter_by(id=id).first()
             if query:
                 query.friend = not query.friend
-                session.commit()
                 return "{}ed @{} as a friend.".format(
                     ["Remov", "Add"][query.friend], args[1])
             else:
