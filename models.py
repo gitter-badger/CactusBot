@@ -638,6 +638,13 @@ class SpamProtCommand(Command):
         return "Not enough arguments."
 
 
+class PermitCommand(Command):
+
+    @role_specific("Mod", reply="mod")
+    def __call__(self, args=None, data=None):
+        pass
+
+
 class ProCommand(Command):
 
     @role_specific("Pro", reply="pro")

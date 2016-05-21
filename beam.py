@@ -26,6 +26,7 @@ class Beam:
     message_id = 0
 
     viewers = dict()
+    permitted = dict()
 
     def __init__(self, debug="INFO", **kwargs):
         self._init_logger(debug, kwargs.get("log_to_file", True))
