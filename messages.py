@@ -87,7 +87,11 @@ class MessageHandler(Beam):
             session.commit()
 
         mod_roles = ("Owner", "Staff", "Founder", "Global Mod", "Mod")
-        if not (data["user_roles"][0] in mod_roles or user.friend):
+        sub_bypass = False
+
+        if self.config.get("spam_protection.sub_bypass") and data["user_roles"][0] == "Subscriber":
+            sub_bypass = True
+        if not (data["user_roles"][0] in mod_roles or user.friend or sub_bypass):
             if (len(parsed) > self.config["spam_protection"].get(
                     "maximum_message_length", 256)):
                 self.remove_message(data["channel"], data["id"])

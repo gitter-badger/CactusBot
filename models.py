@@ -571,6 +571,9 @@ class SpamProtCommand(Command):
                     return "Links are now {dis}allowed.".format(
                         dis="dis" * (not links_allowed))
                 return "Invalid true/false: '{}'.".format(args[2])
+            elif args[1] == "subbypass":
+                if args[2].lower() in ("true", "false"):
+                    self.update_config("spam_protection.sub_bypass", args[2].lower())
             return "Invalid argument: '{}'.".format(args[1])
         return "Not enough arguments."
 
